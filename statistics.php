@@ -15,18 +15,15 @@
      * @license  MIT https://opensource.org/licenses/MIT
      * @link     No Link
      */
-   
+
     $currentPage = "Statistics";
 
     require 'template/header.php';
     require 'scripts/function.php';
 
     ?>
-    
-    </body>
-    <div class="row main-content">
 
-    <div class="d-flex flex-wrap">
+    <div class="statistics-container">
 
     <?php 
     
@@ -37,9 +34,7 @@
     createAllGraphs(); 
     
     ?>
-  
 
     </div>
 
-    </div>
 </html>

@@ -12,6 +12,17 @@
  * @link     No Link
  */
 
+
+session_start();
+
+// Load mail 
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
+
+// Load Composer's autoloader
+require 'vendor/autoload.php';
+
 /**
  * Retrieves amount of movies of genre both provided
  *
@@ -365,7 +376,7 @@ function createGraph($genre)
 
     imagepng($chart, './image/' . $genre . '-graph.png');
 
-    echo sprintf('<img src="./image/%s-graph.png" alt="No Image"></img>', $genre);
+    echo sprintf('<img class=stat-image src="./image/%s-graph.png" alt="No Image"></img>', $genre);
 
     imagedestroy($chart);
 }
@@ -413,7 +424,7 @@ function ratingCombo()
         if ($result->num_rows > 0) {
 
             echo '<label for="searchRating"></label>
-                <select class="form-control-sm" name="searchRating">
+                <select class="form-control-sm ml-0 mr-1" name="searchRating">
                 <option></option>
                 ';
 
@@ -454,6 +465,306 @@ function createAllGraphs()
         $genre = $row['Genre'];
 
         createGraph(addslashes($genre));
+
+    }
+}
+
+/**
+ * Function for subscribing user to newsletter
+ *
+ * @param [type] $name  Full name of user
+ * @param [type] $email Email of user
+ * @param [type] $sub   Chosen subscription type
+ * 
+ * @return void
+ */
+function subscribe($name, $email, $sub) 
+{
+
+    @include 'connect.php';
+
+    if (!@$conn->ping()) {
+        echo '<h2 class="m-2">No Connection to database try again later!</h2>';
+        return;
+    }
+
+    $email = strtolower($email);
+
+    if(!preg_match('/^[a-zA-Z0-9\s]{3,50}$/', $name)) { 
+
+        echo '<div class="alert alert-danger" role="alert">Please enter valid username!</div>';
+        return;
+    }
+
+
+    if(!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+
+        echo '<div class="alert alert-danger" role="alert">Please enter valid email!</div>';
+        return;
+   }
+
+
+    $sql = sprintf("SELECT DISTINCT email FROM subscribers WHERE email = '$email'");
+
+    $result = $conn->query($sql);
+
+    $sql = "";
+
+    if ($result->num_rows === 0) {
+        $sql = sprintf("INSERT INTO subscribers (full_name, email, subscriptions) VALUES ('$name', '$email', '$sub')");
+        echo '<div class="alert alert-success" role="alert">Successfully subscribed</div>';
+    } else {
+        $sql = sprintf("UPDATE subscribers SET full_name = '$name', subscriptions = '$sub', is_deleted = '0' WHERE email = '$email'");
+        echo '<div class="alert alert-success" role="alert">Updated existing subscription</div>';
+    }
+
+    $conn->query($sql);
+
+    if ($sub === "both") {
+        $cat = "Monthy and New Releases Newsletters.";
+    } else {
+        $cat = ($sub === "monthly") ? "Monthly": "New Releases";
+        $cat .= " Newsletter.";
+    }
+
+    $message = sprintf("Hello %s,\n\nYou have successfully subscribed to the %s\n\nUnsubscribe any time on the subscribe page of the website!", $name, $cat, $email);
+
+
+    sendMail($email, "MovieDB - Subscription", $message);
+
+}
+
+/**
+ * Checks if admin login is valid and logs user in
+ *
+ * @return void
+ */
+function checkAdmin() 
+{
+
+    if (isset($_POST['btnLogin'])) {
+
+        $admin = $_POST['adminUsername'];
+        $password = $_POST['adminPassword'];
+
+        if (!preg_match('/^[a-zA-Z0-9\s]{3,50}$/', $admin)) { 
+
+            echo '<div class="alert alert-danger" role="alert">Please enter valid username!</div>';
+            return;
+        }
+
+        // Hardcoded login
+        $harcodedAdmin = "admin";
+        $hardcodedPassword = "password";
+
+        if ($admin === $harcodedAdmin && $password === $hardcodedPassword) {
+            $_SESSION["loggedIn"] = true;
+            header('Location: admin.php');
+        } else {
+            echo '<div class="alert alert-success" role="alert">Invalid Login</div>';
+        }
+
+        
+
+    }
+
+}
+
+/**
+ * Displays all subscriber in database
+ *
+ * @return void
+ */
+function subscriberTable() 
+{
+
+    @include 'connect.php';
+
+    if (!@$conn->ping()) {
+        echo '<h2 class="m-2">No Connection to database try again later!</h2>';
+        return;
+    }
+
+    $sql = sprintf("SELECT * FROM subscribers WHERE is_deleted = '0'");
+
+    $result = $conn->query($sql);
+
+    echo '  <div class="subTable table-responsive">
+            <h2>Subscriber List<div class="btn-logout ml-3">
+            <form action="admin.php" method="post" class="btn-logout">
+                <input type="submit" name="btnLogout" value="Logout" class="btn btn-sm btn-danger btn-logout">
+                  </form>
+            </div></h2>
+            <table class="table table-striped subTable" id="subTable">
+            <thead class="thead thead-dark">
+                <tr>
+                <th scope="col">ID</th>
+                <th scope="col">Full Name</th>
+                <th scope="col">Email</th>
+                <th scope="col">Subscriptions</th>
+                <th scope="col">Remove?</th>
+                </tr>
+            </thead>
+        <tbody>';
+
+
+    if (mysqli_num_rows($result)==0) {
+
+        echo '<tr>
+                <th scope=row></th>
+                <td>No Subscribers!</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                </tr>';
+                    
+    } else {
+
+        while ($row = $result->fetch_assoc()) {
+
+            $id = $row['subscriber_id'];
+            $username = $row['full_name'];
+            $email = $row['email'];
+            $subscriptions = $row['subscriptions'];
+
+            echo "<tr>";
+            echo "<th scope=row>$id</th>";
+            echo "<td>$username</td>";
+            echo "<td>$email</td>";
+            echo "<td>$subscriptions</td>";
+            echo '<td><form action="admin.php" method="post">
+                <input type="hidden" name="delID" value="'. $id .'">
+                <input type="submit" name="submit" value="Remove" class="btn btn-sm btn-danger">
+              </form></td>';
+            echo "</tr>";
+
+
+        }
+
+        echo '</tbody></table></div>';
+
+    }
+}
+
+
+/**
+ * Marks and requests User removal in database
+ *
+ * @param [type] $id User Id to be removed
+ * 
+ * @return void
+ */
+function removeSub($id) 
+{
+
+    @include 'connect.php';
+
+    if (!@$conn->ping()) {
+        echo '<h2 class="m-2">No Connection to database try again later!</h2>';
+        return;
+    }
+
+    $sql = sprintf("UPDATE subscribers SET is_deleted = '1' WHERE subscriber_id = $id");
+
+    $conn->query($sql);
+
+    sendMail(ADMIN_EMAIL, "Removal Request - Automated", "Please remove User ID: $id From the database. \n\n Automated Alert - MovieDB\n Do not reply.");
+
+}
+
+function unsubscribe($email) {
+
+    if(!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+
+        echo '<div class="alert alert-danger" role="alert">Please enter valid email!</div>';
+        return;
+   }
+
+    @include 'connect.php';
+
+    if (!@$conn->ping()) {
+        echo '<h2 class="m-2">No Connection to database try again later!</h2>';
+        return;
+    }
+
+    $sql = sprintf("SELECT subscriber_id FROM subscribers WHERE email = '$email' AND is_deleted = 0");
+
+    $result = $conn->query($sql);
+
+    if ($result->num_rows === 0) { 
+
+        echo '<div class="alert alert-danger" role="alert">Email was not subscribed!.</div>';
+    } else {
+        $row = $result->fetch_assoc();
+
+        removeSub($row['subscriber_id']);
+    }
+
+}
+
+/**
+ * SendMail Function
+ *
+ * @param [type] $target  Target email address
+ * @param [type] $subject Subject of email
+ * @param [type] $body    Body of email
+ * 
+ * @return void
+ */
+function sendMail($target, $subject, $body) 
+{
+
+    $mail = new PHPMailer;
+    //Tell PHPMailer to use SMTP
+    $mail->isSMTP();
+
+    //Enable SMTP debugging
+    // SMTP::DEBUG_OFF = off (for production use)
+    // SMTP::DEBUG_CLIENT = client messages
+    // SMTP::DEBUG_SERVER = client and server messages
+    $mail->SMTPDebug = SMTP::DEBUG_OFF;
+
+    //Set the hostname of the mail server
+    $mail->Host = 'smtp.gmail.com';
+
+    //Set the SMTP port number - 587 for authenticated TLS, a.k.a. RFC4409 SMTP submission
+    $mail->Port = 587;
+
+    //Set the encryption mechanism to use - STARTTLS or SMTPS
+    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+
+    //Whether to use SMTP authentication
+    $mail->SMTPAuth = true;
+
+    //Username to use for SMTP authentication - use full email address for gmail
+    $mail->Username = 'moviedbmailer@gmail.com';
+
+    //Password to use for SMTP authentication
+    $mail->Password = 'easypassword5';
+    
+    //Set who the message is to be sent from
+    $mail->setFrom('moviedbmailer@gmail.com', 'MovieDB Admin');
+
+    //Set an alternative reply-to address
+    $mail->addReplyTo('moviedbmailer@gmail.com', 'MovieDB Admin');
+
+    //Set who the message is to be sent to
+    $mail->addAddress($target);
+
+    //Set the subject line
+    $mail->Subject = $subject;
+
+    //Set Body
+    $mail->Body = $body;
+
+    //send the message, check for errors
+    if (!$mail->send()) {
+        // Will need to enable server debug as well if using
+        // echo 'Mailer Error: '. $mail->ErrorInfo;
+
+        echo '<div class="alert alert-danger" role="alert">Unable to Mail admin.</div>';
+    } else {
+        echo '<div class="alert alert-success" role="alert">Sent Email Alert</div>';
 
     }
 }

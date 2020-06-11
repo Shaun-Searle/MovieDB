@@ -28,9 +28,9 @@
     <article>
     <?php 
         // Advanced Search Form
-        echo '<form action="./search.php" method="post">
-        <h2>Advanced Search</h2>
-        <div class="form-group">
+        echo '<form action="./search.php" method="post" class="">
+        <h2 class="w-100">Advanced Search</h2>
+        <div class="form-group w-100">
         <label for="searchTerm"></label>
         <input type="text" class="form-control" name="searchTerm" placeholder="Search">
         </div>
@@ -45,7 +45,7 @@
 
         <div class="form-group">
         <label for="searchYear"></label>
-        <input type="text" class="form-control-sm" name="searchYear" placeholder="Year">
+        <input type="text" class="form-control-sm space-size" name="searchYear" placeholder="Year">
         </div>
         <button type="submit" class="btn btn-primary">Submit</button>
         </form>';
@@ -54,12 +54,12 @@
     ?>
     </article>
     </div>
-    <div class="d-flex flex-wrap card-container"><?php 
+    <div class="card-container"><?php 
 
     // Search bar is handled on same page
     if (isset($_GET['searchBar'])) {
 
-        // Main Search function returns echo fo each item
+        // Main Search function returns echo for each item
         searchDB($_GET['searchBar'], "", "", "");
     }
     
@@ -70,7 +70,7 @@
         $rating = $_POST['searchRating'];
         $year = $_POST['searchYear'];
 
-        // Main Search function returns echo fo each item
+        // Main Search function returns echo for each item
         searchDB($term, $genre, $rating, $year);
     }
 
